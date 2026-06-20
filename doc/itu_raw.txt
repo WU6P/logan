@@ -1,0 +1,310 @@
+Call Sign SeriesAllocated to
+AAA-ALZ United States of America
+AMA-AOZSpain
+APA-ASZ Pakistan (Islamic Republic of)
+ATA-AWZIndia (Republic of)
+AXA-AXZ Australia
+AYA-AZZ Argentine Republic
+A2A-A2Z Botswana (Republic of)
+A3A-A3Z Tonga (Kingdom of)
+A4A-A4Z Oman (Sultanate of)
+A5A-A5Z Bhutan (Kingdom of)
+A6A-A6Z United Arab Emirates
+A7A-A7Z Qatar (State of)
+A8A-A8Z Liberia (Republic of)
+A9A-A9Z Bahrain (State of)
+BAA-BZZ China (People's Republic of)
+CAA-CEZ Chile
+CFA-CKZ Canada
+CLA-CMZ Cuba
+CNA-CNZ Morocco (Kingdom of)
+COA-COZCuba
+CPA-CPZ Bolivia (Republic of)
+CQA-CUZ Portugal
+CVA-CXZ Uruguay (Eastern Republic of)
+CYA-CZZ Canada
+C2A-C2Z Nauru (Republic of)
+C3A-C3Z Andorra (Principality of)
+C4A-C4Z Cyprus (Republic of)
+C5A-C5Z Gambia (Republic of the)
+C6A-C6Z Bahamas (Commonwealth of the)
+* C7A-C7Z World Meteorological Organization
+C8A-C9Z Mozambique (Republic of)
+DAA-DRZ Germany (Federal Republic of)
+DSA-DTZ Korea (Republic of)
+DUA-DZZ Philippines (Republic of the)
+D2A-D3Z Angola (Republic of)
+D4A-D4Z Cape Verde (Republic of)
+D5A-D5Z Liberia (Republic of)
+D6A-D6Z Comoros (Islamic Federal Republic of the)
+D7A-D9Z Korea (Republic of)
+EAA-EHZ Spain
+EIA-EJZ Ireland
+EKA-EKZ Armenia (Republic of)
+ELA-ELZ Liberia (Republic of)
+EMA-EOZ Ukraine
+EPA-EQZ Iran (Islamic Republic of)
+ERA-ERZ Moldova (Republic of)
+ESA-ESZ Estonia (Republic of)
+ETA-ETZ Ethiopia (Federal Democratic Republic of)
+EUA-EWZBelarus (Republic of)
+EXA-EXZ Kyrgyz Republic
+EYA-EYZ Tajikistan (Republic of)
+EZA-EZZ Turkmenistan
+E2A-E2Z Thailand
+E3A-E3Z Eritrea
+** E4A-E4Z Palestinian Authority
+E5A-E5Z New Zealand - Cook Islands                     (WRC-07)
+E6A-E6Z New Zealand - Niue
+E7A-E7Z Bosnia and Herzegovina (Republic of)        (WRC-07)
+FAA-FZZ France
+GAA-GZZ United Kingdom of Great Britain and Northern Ireland
+HAA-HAZ Hungary (Republic of)
+HBA-HBZ Switzerland (Confederation of)
+HCA-HDZ Ecuador
+HEA-HEZ Switzerland (Confederation of)
+HFA-HFZ Poland (Republic of)
+HGA-HGZHungary (Republic of)
+HHA-HHZ Haiti (Republic of)
+HIA-HIZ Dominican Republic
+HJA-HKZ Colombia (Republic of)
+HLA-HLZ Korea (Republic of)
+HMA-HMZDemocratic People's Republic of Korea
+HNA-HNZ Iraq (Republic of)
+HOA-HPZ Panama (Republic of)
+HQA-HRZ Honduras (Republic of)
+HSA-HSZ Thailand
+HTA-HTZ Nicaragua
+HUA-HUZ El Salvador (Republic of)
+HVA-HVZ Vatican City State
+HWA-HYZFrance
+HZA-HZZ Saudi Arabia (Kingdom of)
+H2A-H2Z Cyprus (Republic of)
+H3A-H3Z Panama (Republic of)
+H4A-H4Z Solomon Islands
+H6A-H7Z Nicaragua
+H8A-H9Z Panama (Republic of)
+IAA-IZZ Italy
+JAA-JSZ Japan
+JTA-JVZ Mongolia
+JWA-JXZ Norway
+JYA-JYZ Jordan (Hashemite Kingdom of)
+JZA-JZZ Indonesia (Republic of)
+J2A-J2Z Djibouti (Republic of)
+J3A-J3Z Grenada
+J4A-J4Z Greece
+J5A-J5Z Guinea-Bissau (Republic of)
+J6A-J6Z Saint Lucia
+J7A-J7Z Dominica (Commonwealth of)
+J8A-J8Z Saint Vincent and the Grenadines
+KAA-KZZ United States of America
+LAA-LNZ Norway
+LOA-LWZ Argentine Republic
+LXA-LXZ Luxembourg
+LYA-LYZ Lithuania (Republic of)
+LZA-LZZ Bulgaria (Republic of)
+L2A-L9Z Argentine Republic
+MAA-MZZUnited Kingdom of Great Britain and Northern Ireland
+NAA-NZZ United States of America
+OAA-OCZPeru
+ODA-ODZLebanon
+OEA-OEZ Austria
+OFA-OJZ Finland
+OKA-OLZ Czech Republic
+OMA-OMZSlovak Republic
+ONA-OTZ Belgium
+OUA-OZZ Denmark
+PAA-PIZ Netherlands (Kingdom of the)
+PJA-PJZ Netherlands (Kingdom of the) - Netherlands Caribbean
+PKA-POZ Indonesia (Republic of)
+PPA-PYZ Brazil (Federative Republic of)
+PZA-PZZ Suriname (Republic of)
+P2A-P2Z Papua New Guinea
+P3A-P3Z Cyprus (Republic of)
+P4A-P4Z Netherlands (Kingdom of the) - Aruba
+P5A-P9Z Democratic People's Republic of Korea
+RAA-RZZ Russian Federation
+SAA-SMZ Sweden
+SNA-SRZ Poland (Republic of)
+SSA-SSM Egypt (Arab Republic of)
+SSN-STZ Sudan (Republic of the)
+SUA-SUZ Egypt (Arab Republic of)
+SVA-SZZ Greece
+S2A-S3Z Bangladesh (People's Republic of)
+S5A-S5Z Slovenia (Republic of)
+S6A-S6Z Singapore (Republic of)
+S7A-S7Z Seychelles (Republic of)
+S8A-S8Z South Africa (Republic of)
+S9A-S9Z Sao Tome and Principe (Democratic Republic of)
+TAA-TCZ Turkey
+TDA-TDZ Guatemala (Republic of)
+TEA-TEZ Costa Rica
+TFA-TFZ Iceland
+TGA-TGZ Guatemala (Republic of)
+THA-THZ France
+TIA-TIZ Costa Rica
+TJA-TJZ Cameroon (Republic of)
+TKA-TKZ France
+TLA-TLZ Central African Republic
+TMA-TMZ France
+TNA-TNZ Congo (Republic of the)
+TOA-TQZ France
+TRA-TRZ Gabonese Republic
+TSA-TSZ Tunisia
+TTA-TTZ Chad (Republic of)
+TUA-TUZ Côte d'Ivoire (Republic of)
+TVA-TXZ France
+TYA-TYZ Benin (Republic of)
+TZA-TZZ Mali (Republic of)
+T2A-T2Z Tuvalu
+T3A-T3Z Kiribati (Republic of)
+T4A-T4Z Cuba
+T5A-T5Z Somali Democratic Republic
+T6A-T6Z Afghanistan (Islamic State of)
+T7A-T7Z San Marino (Republic of)
+T8A-T8Z Palau (Republic of)
+UAA-UIZ Russian Federation
+UJA-UMZ Uzbekistan (Republic of)
+UNA-UQZ Kazakhstan (Republic of)
+URA-UZZ Ukraine
+VAA-VGZ Canada
+VHA-VNZ Australia
+VOA-VOZ Canada
+VPA-VQZ United Kingdom of Great Britain and Northern Ireland
+VRA-VRZ China (People's Republic of) - Hong Kong
+VSA-VSZ United Kingdom of Great Britain and Northern Ireland
+VTA-VWZ India (Republic of)
+VXA-VYZ Canada
+VZA-VZZ Australia
+V2A-V2Z Antigua and Barbuda
+V3A-V3Z Belize
+V4A-V4Z Saint Kitts and Nevis
+V5A-V5Z Namibia (Republic of)
+V6A-V6Z Micronesia (Federated States of)
+V7A-V7Z Marshall Islands (Republic of the)
+V8A-V8Z Brunei Darussalam
+WAA-WZZUnited States of America
+XAA-XIZ Mexico
+XJA-XOZ Canada
+XPA-XPZ Denmark
+XQA-XRZ Chile
+XSA-XSZ China (People's Republic of)
+XTA-XTZ Burkina Faso
+XUA-XUZ Cambodia (Kingdom of)
+XVA-XVZ Viet Nam (Socialist Republic of)
+XWA-XWZLao People's Democratic Republic
+XXA-XXZ China (People's Republic of) - Macao        (WRC-07)
+XYA-XZZ Myanmar (Union of)
+YAA-YAZ Afghanistan (Islamic State of)
+YBA-YHZ Indonesia (Republic of)
+YIA-YIZ Iraq (Republic of)
+YJA-YJZ Vanuatu (Republic of)
+YKA-YKZ Syrian Arab Republic
+YLA-YLZ Latvia (Republic of)
+YMA-YMZTurkey
+YNA-YNZ Nicaragua
+YOA-YRZ Romania
+YSA-YSZ El Salvador (Republic of)
+YTA-YUZ Serbia (Republic of)                                 (WRC-07)
+YVA-YYZ Venezuela (Republic of)
+Y2A-Y9Z Germany (Federal Republic of)
+ZAA-ZAZ Albania (Republic of)
+ZBA-ZJZ United Kingdom of Great Britain and Northern Ireland
+ZKA-ZMZ New Zealand
+ZNA-ZOZ United Kingdom of Great Britain and Northern Ireland
+ZPA-ZPZ Paraguay (Republic of)
+ZQA-ZQZ United Kingdom of Great Britain and Northern Ireland
+ZRA-ZUZ South Africa (Republic of)
+ZVA-ZZZ Brazil (Federative Republic of)
+Z2A-Z2Z Zimbabwe (Republic of)
+Z3A-Z3Z North Macedonia (Republic of)
+Z6A-Z6Z Kosovo (Republic of)
+Z8A-Z8Z South Sudan (Republic of)
+2AA-2ZZ United Kingdom of Great Britain and Northern Ireland
+3AA-3AZ Monaco (Principality of)
+3BA-3BZ Mauritius (Republic of)
+3CA-3CZ Equatorial Guinea (Republic of)
+3DA-3DM Kingdom of Eswatini
+3DN-3DZ Fiji (Republic of)
+3EA-3FZ Panama (Republic of)
+3GA-3GZ Chile
+3HA-3UZ China (People's Republic of)
+3VA-3VZ Tunisia
+3WA-3WZViet Nam (Socialist Republic of)
+3XA-3XZ Guinea (Republic of)
+3YA-3YZ Norway
+3ZA-3ZZ Poland (Republic of)
+4AA-4CZ Mexico
+4DA-4IZ Philippines (Republic of the)
+4JA-4KZ Azerbaijani Republic
+4LA-4LZ Georgia (Republic of)
+4MA-4MZ Venezuela (Republic of)
+4OA-4OZ Montenegro (Republic of)                   (WRC-07)
+4PA-4SZ Sri Lanka (Democratic Socialist Republic of)
+4TA-4TZ Peru
+* 4UA-4UZ United Nations
+4VA-4VZ Haiti (Republic of)
+4WA-4WZDemocratic Republic of Timor-Leste   (WRC-03)
+4XA-4XZ Israel (State of)
+* 4YA-4YZ International Civil Aviation Organization
+4ZA-4ZZ Israel (State of)
+5AA-5AZ Libya (Socialist People's Libyan Arab Jamahiriya)
+5BA-5BZ Cyprus (Republic of)
+5CA-5GZ Morocco (Kingdom of)
+5HA-5IZ Tanzania (United Republic of)
+5JA-5KZ Colombia (Republic of)
+5LA-5MZ Liberia (Republic of)
+5NA-5OZ Nigeria (Federal Republic of)
+5PA-5QZ Denmark
+5RA-5SZ Madagascar (Republic of)
+5TA-5TZ Mauritania (Islamic Republic of)
+5UA-5UZ Niger (Republic of the)
+5VA-5VZ Togolese Republic
+5WA-5WZSamoa (Independent State of)
+5XA-5XZ Uganda (Republic of)
+5YA-5ZZ Kenya (Republic of)
+6AA-6BZ Egypt (Arab Republic of)
+6CA-6CZ Syrian Arab Republic
+6DA-6JZ Mexico
+6KA-6NZ Korea (Republic of)
+6OA-6OZ Somali Democratic Republic
+6PA-6SZ Pakistan (Islamic Republic of)
+6TA-6UZ Sudan (Republic of the)
+6VA-6WZ Senegal (Republic of)
+6XA-6XZ Madagascar (Republic of)
+6YA-6YZ Jamaica
+6ZA-6ZZ Liberia (Republic of)
+7AA-7IZ Indonesia (Republic of)
+7JA-7NZ Japan
+7OA-7OZ Yemen (Republic of)
+7PA-7PZ Lesotho (Kingdom of)
+7QA-7QZ Malawi
+7RA-7RZ Algeria (People's Democratic Republic of)
+7SA-7SZ Sweden
+7TA-7YZ Algeria (People's Democratic Republic of)
+7ZA-7ZZ Saudi Arabia (Kingdom of)
+8AA-8IZ Indonesia (Republic of)
+8JA-8NZ Japan
+8OA-8OZ Botswana (Republic of)
+8PA-8PZ Barbados
+8QA-8QZ Maldives (Republic of)
+8RA-8RZ Guyana
+8SA-8SZ Sweden
+8TA-8YZ India (Republic of)
+8ZA-8ZZ Saudi Arabia (Kingdom of)
+9AA-9AZ Croatia (Republic of)
+9BA-9DZ Iran (Islamic Republic of)
+9EA-9FZ Ethiopia (Federal Democratic Republic of)
+9GA-9GZ Ghana
+9HA-9HZ Malta
+9IA-9JZ Zambia (Republic of)
+9KA-9KZ Kuwait (State of)
+9LA-9LZ Sierra Leone
+9MA-9MZ Malaysia
+9NA-9NZ Nepal
+9OA-9TZ Democratic Republic of the Congo
+9UA-9UZ Burundi (Republic of)
+9VA-9VZ Singapore (Republic of)
+9WA-9WZMalaysia
+9XA-9XZ Rwandese Republic
+9YA-9ZZ Trinidad and Tobago
