@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """logan — a web-based ham radio log analyzer.
 
-Start the server, then drag one or more ADIF (.adi/.adif) logs onto the page in
-your browser. logan reports operating statistics:
+Start the server, then drag one or more ADIF (.adi/.adif) or Cabrillo (.log)
+logs onto the page in your browser. logan reports operating statistics:
 
   * summary — QSOs, span, unique calls, bands, modes, DXCC entities, zones
+  * CBS-style text report (after "Cabrillo Statistics" by K5KA & N6TV):
+    hourly per-band rate table, dupes, best 60/30/10-minute and 1-minute
+    rates, continent/country/multiplier band matrices, multi-band stations
   * contest timeline (rate + cumulative + K-index) and hourly rate by band
   * best rolling 60- and 10-minute rates (contest style)
   * first / last contact per continent (e.g. the first & last European QSO)
@@ -94,6 +97,126 @@ def qso_datetime(qso):
         return datetime.strptime(d + t, "%Y%m%d%H%M%S")
     except ValueError:
         return None
+
+
+# --------------------------------------------------------------------------
+# Cabrillo (.log) parsing — contest logs, e.g. the cqww.com public logs.
+# --------------------------------------------------------------------------
+
+_BAND_EDGES = [
+    (1800, 2000, "160M"), (3500, 4000, "80M"), (5250, 5450, "60M"),
+    (7000, 7300, "40M"), (10100, 10150, "30M"), (14000, 14350, "20M"),
+    (18068, 18168, "17M"), (21000, 21450, "15M"), (24890, 24990, "12M"),
+    (28000, 29700, "10M"), (50000, 54000, "6M"), (70000, 71000, "4M"),
+    (144000, 148000, "2M"), (420000, 450000, "70CM"),
+]
+_CAB_MODE = {"CW": "CW", "PH": "SSB", "SSB": "SSB", "RY": "RTTY",
+             "RTTY": "RTTY", "FM": "FM", "DG": "DATA", "DI": "DATA"}
+
+
+def khz_to_band(khz):
+    """ADIF band name for a frequency in kHz (or '' if out of any ham band)."""
+    try:
+        f = float(khz)
+    except (TypeError, ValueError):
+        return ""
+    for lo, hi, name in _BAND_EDGES:
+        if lo <= f <= hi:
+            return name
+    return ""
+
+
+def _is_callsign(tok):
+    """A token shaped like a callsign: has a letter and a digit, sane length."""
+    t = (tok or "").upper()
+    return (3 <= len(t) <= 12 and any(c.isalpha() for c in t)
+            and any(c.isdigit() for c in t)
+            and all(c.isalnum() or c == "/" for c in t))
+
+
+def _cabrillo_split(body):
+    """(their_call, received_tokens) from a Cabrillo QSO: body.
+
+    The layout is symmetric — freq mode date time MYCALL <sent...> THEIRCALL
+    <rcvd...> [txno] — so the received call sits at index 5 + (n-6)//2; falls
+    back to the second callsign-shaped token when that slot doesn't look
+    like a call."""
+    if len(body) < 7:
+        return None, []
+    idx = 5 + (len(body) - 6) // 2
+    cand = body[idx] if idx < len(body) else None
+    if not (cand and _is_callsign(cand)):
+        shaped = [t for t in body[4:] if _is_callsign(t)]
+        if len(shaped) < 2:
+            return None, []
+        cand = shaped[1]
+        idx = body.index(cand)
+    return cand, body[idx + 1:]
+
+
+def parse_cabrillo_records(text):
+    """Parse Cabrillo QSO: lines into ADIF-shaped dicts (CALL, QSO_DATE,
+    TIME_ON, BAND, MODE, FREQ, RST_RCVD, SRX_STRING) so the rest of logan
+    treats contest logs exactly like ADIF ones. The CALLSIGN:/CONTEST:/
+    OPERATORS: header lines are copied onto every record (STATION_CALLSIGN,
+    CONTEST_ID, APP_LOGAN_OPS). X-QSO lines are skipped."""
+    station = contest = ops = ""
+    records = []
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        u = s.upper()
+        if u.startswith("CALLSIGN:"):
+            station = s.split(":", 1)[1].strip().upper()
+            continue
+        if u.startswith("CONTEST:"):
+            contest = s.split(":", 1)[1].strip()
+            continue
+        if u.startswith("OPERATORS:"):
+            ops = s.split(":", 1)[1].strip().upper()
+            continue
+        if not u.startswith("QSO:"):
+            continue
+        body = s.split()[1:]
+        if len(body) < 6:
+            continue
+        freq, mode, d, t = body[0], body[1].upper(), body[2], body[3]
+        call, rcvd = _cabrillo_split(body)
+        if not call:
+            continue
+        ds = d.replace("-", "")
+        if len(ds) != 8 or len(t) not in (4, 6):
+            continue
+        rst = rcvd[0] if rcvd and re.fullmatch(r"\d{2,3}", rcvd[0]) else ""
+        exch = rcvd[1:] if rst else rcvd
+        rec = {
+            "CALL": call.upper(), "QSO_DATE": ds,
+            "TIME_ON": (t + "00")[:6] if len(t) == 4 else t,
+            "BAND": khz_to_band(freq), "FREQ": freq,
+            "MODE": _CAB_MODE.get(mode, mode), "RST_RCVD": rst,
+            "SRX_STRING": " ".join(exch),
+        }
+        if station:
+            rec["STATION_CALLSIGN"] = station
+        if contest:
+            rec["CONTEST_ID"] = contest
+        if ops:
+            rec["APP_LOGAN_OPS"] = ops
+        records.append(rec)
+    return records
+
+
+def records_from_text(text):
+    """Parse a log's text as ADIF if it looks like ADIF, else Cabrillo."""
+    if re.search(r"<EOH>", text, re.IGNORECASE) or \
+       re.search(r"<CALL", text, re.IGNORECASE):
+        return parse_adif_records(text)
+    if re.search(r"^\s*QSO:", text, re.IGNORECASE | re.MULTILINE) or \
+       "START-OF-LOG" in text.upper():
+        return parse_cabrillo_records(text)
+    recs = parse_adif_records(text)
+    return recs if recs else parse_cabrillo_records(text)
 
 
 # --------------------------------------------------------------------------
@@ -198,6 +321,25 @@ def _lookup_head(core):
 # R<digit> Russian calls don't resolve. These overrides map each split to the
 # right (located) entity. See the dxcc_prefix_resolution skill.
 _PREFIX_OVERRIDES = [
+    # UK M/2-series mirror the G-series regionals; the bare 'M' DXCC key and a
+    # broken ITU row (UK listed with UN-headquarters NA coordinates) otherwise
+    # send MD/MM/MW... to North America.
+    (re.compile(r"^(?:MD|2D)"), "Isle of Man"),
+    (re.compile(r"^(?:MI|2I)"), "Northern Ireland"),
+    (re.compile(r"^(?:MJ|2J)"), "Jersey"),
+    (re.compile(r"^(?:MM|2M)"), "Scotland"),
+    (re.compile(r"^(?:MU|2U)"), "Guernsey"),
+    (re.compile(r"^(?:MW|2W)"), "Wales"),
+    (re.compile(r"^(?:M|2E)"), "England"),
+    # Guantanamo Bay is only KG4 + exactly two letters; every other KG is USA.
+    (re.compile(r"^KG4[A-Z]{2}$"), "Guantanamo Bay"),
+    (re.compile(r"^KG"), "United States of America"),
+    # Portuguese call-area splits: digit 3/9 = Madeira, 8 = Azores.
+    (re.compile(r"^C[QRST][39]"), "Madeira Is."),
+    (re.compile(r"^C[QRST]8"), "Azores"),
+    # Malaysian novice/class-B 9W mirrors 9M: 9W6/9W8 = East, rest = West.
+    (re.compile(r"^9W[68]"), "East Malaysia"),
+    (re.compile(r"^9W"), "West Malaysia"),
     (re.compile(r"^KP[34]"), "Puerto Rico"),
     (re.compile(r"^KP2"), "Virgin Is."),
     (re.compile(r"^[AKNW]H6"), "Hawaii"),
@@ -442,6 +584,253 @@ def classify_cached(q):
     if "_LOGAN" not in q:
         q["_LOGAN"] = classify(q)
     return q["_LOGAN"]
+
+
+# --------------------------------------------------------------------------
+# CBS-style text report (after "Cabrillo Statistics" by K5KA & N6TV)
+# --------------------------------------------------------------------------
+
+CBS_CONT_ORDER = ["NA", "SA", "EU", "AS", "AF", "OC", "AN"]
+
+
+def _cbs_title(text, width):
+    """A CBS-style banner: '------ T e x t ------' padded to `width`."""
+    spaced = "   ".join(" ".join(w) for w in text.split())
+    pad = max(0, width - len(spaced) - 2)
+    left = pad // 2
+    return "-" * left + " " + spaced + " " + "-" * (pad - left)
+
+
+def _best_minute_window(mins, width_min):
+    """Best `width_min`-minute window over minute-floored sorted times:
+    (count, window_start). A window covers [start, start + width)."""
+    width = timedelta(minutes=width_min)
+    best, at, left = 0, None, 0
+    for right in range(len(mins)):
+        while mins[right] - mins[left] >= width:
+            left += 1
+        if right - left + 1 > best:
+            best, at = right - left + 1, mins[left]
+    return best, at
+
+
+def _rcvd_zone(q):
+    """CQ-zone multiplier for a QSO: the received exchange when it carries a
+    zone number (Cabrillo / contest ADIF), else the resolved CQ zone."""
+    for tok in (q.get("SRX_STRING", "") or "").split():
+        if tok.isdigit() and 1 <= int(tok) <= 40:
+            return int(tok)
+    try:
+        return int(classify_cached(q)[2])
+    except (TypeError, ValueError):
+        return None
+
+
+def cbs_report(rows):
+    """Contest statistics as monospace text, after the classic "Cabrillo
+    Statistics" (CBS) report by K5KA & N6TV: hourly per-band rate table,
+    dupe/unique counts, best-window and per-minute rates, continent /
+    country / multiplier × band matrices, callsign-length histogram and
+    multi-/single-band station summaries. `rows` = time-sorted (dt, qso).
+
+    Counts follow the CBS convention: dupes (the same call worked again on
+    the same band & mode) are dropped and every table shows net QSOs."""
+    gross = len(rows)
+    if not gross:
+        return ""
+
+    seen, net = set(), []                    # net: (dt, qso, call, band)
+    for dt, q in rows:
+        call = (q.get("CALL", "") or "").upper().strip()
+        band = (q.get("BAND", "") or "Unknown").upper()
+        key = (call, band, (q.get("MODE", "") or "").upper())
+        if key in seen:
+            continue
+        seen.add(key)
+        net.append((dt, q, call, band))
+    dupes = gross - len(net)
+    total = len(net)
+
+    bands = sorted({b for _, _, _, b in net}, key=band_sort_key)
+    disp = {b: (b[:-1] if b.endswith("M") and b[:-1].isdigit() else b)
+            for b in bands}
+    band_tot = Counter(b for _, _, _, b in net)
+
+    def band_cells(counter):
+        return "".join(f"{counter.get(b, 0):>7}" for b in bands)
+
+    def matrix_line(label, w1, counter, pct=False):
+        n = sum(counter.values())
+        line = f"{label:<{w1}}" + band_cells(counter) + f"{n:>7}"
+        if pct:
+            line += f"{n / total * 100:>7.1f}"
+        return line
+
+    L = []
+    q0 = net[0][1]
+    contest = (q0.get("CONTEST_ID", "") or "").strip()
+    station = Counter((q.get("STATION_CALLSIGN", "") or "").upper().strip()
+                      for _, q, _, _ in net)
+    station.pop("", None)
+    ops = (q0.get("APP_LOGAN_OPS", "") or "").strip()
+    if not ops:
+        ops = " ".join(sorted({(q.get("OPERATOR", "") or "").upper().strip()
+                               for _, q, _, _ in net} - {""}))
+    L.append("Contest statistics by logan")
+    L.append('(format after "Cabrillo Statistics" by K5KA & N6TV)')
+    L.append("")
+    if contest:
+        L.append(f"CONTEST: {contest}")
+    if station:
+        L.append(f"CALLSIGN: {station.most_common(1)[0][0]}")
+    if ops:
+        L.append(f"OPERATORS: {ops}")
+    L.append("")
+
+    # ---- hourly rate table ------------------------------------------------
+    hour_band = defaultdict(Counter)
+    for dt, _, _, b in net:
+        hour_band[dt.replace(minute=0, second=0, microsecond=0)][b] += 1
+    h0, h1 = min(hour_band), max(hour_band)
+    nbuckets = int((h1 - h0).total_seconds() // 3600) + 1
+    full = nbuckets <= 170                   # ≤ a week: show every hour
+    buckets = ([h0 + timedelta(hours=k) for k in range(nbuckets)]
+               if full else sorted(hour_band))
+    w1 = 5 if full else 12
+    width = w1 + 7 * len(bands) + 21
+    L.append(_cbs_title("QSO Rate Summary", width))
+    L.append(f"{'Hour':<{w1}}" + "".join(f"{disp[b]:>7}" for b in bands)
+             + f"{'Rate':>7}{'Total':>7}{'Pct':>7}")
+    L.append("-" * width)
+    cum = 0
+    for h in buckets:
+        c = hour_band.get(h, Counter())
+        n = sum(c.values())
+        cum += n
+        label = h.strftime("%H%M") if full else h.strftime("%m-%d %H") + "Z"
+        L.append(f"{label:<{w1}}" + band_cells(c)
+                 + f"{n:>7}{cum:>7}{cum / total * 100:>7.1f}")
+    L.append("-" * (width - 14))
+    L.append(f"{'Total':<{w1}}" + band_cells(band_tot) + f"{total:>7}")
+    L.append("")
+    L.append(f"Gross QSOs={gross}        Dupes={dupes}        Net QSOs={total}")
+    L.append("")
+    L.append(f"Unique callsigns worked = {len({c for _, _, c, _ in net})}")
+    L.append("")
+
+    # ---- best-window and per-minute rates ---------------------------------
+    mins = [dt.replace(second=0, microsecond=0) for dt, _, _, _ in net]
+    for wmin in (60, 30, 10):
+        n, at = _best_minute_window(mins, wmin)
+        if at is None:
+            continue
+        end = at + timedelta(minutes=wmin - 1)
+        L.append(f"The best {wmin} minute rate was {round(n * 60 / wmin)}/hour"
+                 f" from {at:%H%M} to {end:%H%M}")
+    L.append("")
+    hist = Counter(Counter(mins).values())
+    L.append("The best 1 minute rates were:")
+    for qpm in sorted(hist, reverse=True):
+        L.append(f"{qpm:2d} QSOs/minute {hist[qpm]:4d} times.")
+    L.append("")
+
+    # ---- continent / country / multiplier × band matrices -----------------
+    cont_band = defaultdict(Counter)
+    ent_band = defaultdict(Counter)
+    zone_band = defaultdict(Counter)
+    for _, q, _, b in net:
+        cont, _itu, _cq, ent, _src, _lat, _lon = classify_cached(q)
+        cont_band[cont or "??"][b] += 1
+        ent_band[ent or "(unresolved)"][b] += 1
+        z = _rcvd_zone(q)
+        if z is not None:
+            zone_band[f"{z:02d}"][b] += 1
+
+    w1 = 14
+    width = w1 + 7 * len(bands) + 14
+    L.append(_cbs_title("Continent Summary", width))
+    L.append(f"{'':<{w1}}" + "".join(f"{disp[b]:>7}" for b in bands)
+             + f"{'Total':>7}{'Pct':>7}")
+    L.append("-" * width)
+    order = ([c for c in CBS_CONT_ORDER if c in cont_band]
+             + (["??"] if "??" in cont_band else []))
+    for c in order:
+        L.append(matrix_line(CONTINENT_NAMES.get(c, "Unknown"), w1,
+                             cont_band[c], pct=True))
+    L.append("-" * (width - 7))
+    L.append(f"{'Total':<{w1}}" + band_cells(band_tot) + f"{total:>7}")
+    L.append("")
+
+    L.append("Number of letters in callsigns")
+    L.append("Letters  # worked")
+    L.append("-----------------")
+    letters = Counter(len(c) for _, _, c, _ in net)
+    for ln in sorted(letters):
+        L.append(f"{ln:>4}{letters[ln]:>10}")
+    L.append("")
+
+    w1 = min(max((len(e) for e in ent_band), default=8) + 2, 30)
+    width = w1 + 7 * len(bands) + 14
+    L.append(_cbs_title("Country Summary", width))
+    L.append(f"{'Country':<{w1}}" + "".join(f"{disp[b]:>7}" for b in bands)
+             + f"{'Total':>7}{'Pct':>7}")
+    L.append("-" * width)
+    for e in sorted(ent_band):
+        L.append(matrix_line(e[:w1 - 1], w1, ent_band[e], pct=True))
+    L.append("-" * (width - 7))
+    L.append(f"{'Total':<{w1}}" + band_cells(band_tot) + f"{total:>7}")
+    L.append("")
+
+    if zone_band:
+        w1 = 5
+        width = w1 + 7 * len(bands) + 14
+        L.append(_cbs_title("Multiplier Summary", width))
+        L.append(f"{'Mult':<{w1}}" + "".join(f"{disp[b]:>7}" for b in bands)
+                 + f"{'Total':>7}{'Pct':>7}")
+        L.append("-" * width)
+        for z in sorted(zone_band,
+                        key=lambda z: (-sum(zone_band[z].values()), z)):
+            L.append(matrix_line(z, w1, zone_band[z], pct=True))
+        L.append("-" * (width - 7))
+        ztot = sum(sum(c.values()) for c in zone_band.values())
+        zt = Counter()
+        for c in zone_band.values():
+            zt.update(c)
+        L.append(f"{'Total':<{w1}}" + band_cells(zt) + f"{ztot:>7}")
+        L.append("")
+
+    # ---- multi-band / single-band stations ---------------------------------
+    call_bands = defaultdict(set)
+    for _, _, c, b in net:
+        call_bands[c].add(b)
+    nb_hist = Counter(len(v) for v in call_bands.values())
+    L.append("Multi-band QSOs")
+    L.append("---------------")
+    for nb in sorted(nb_hist):
+        L.append(f"{nb} bands  {nb_hist[nb]:>6}")
+    if len(bands) > 1:
+        allband = sorted(c for c, v in call_bands.items()
+                         if len(v) == len(bands))
+        if allband:
+            L.append("")
+            L.append(f"The following stations were worked on "
+                     f"{len(bands)} bands:")
+            L.append("")
+            for i in range(0, len(allband), 6):
+                L.append("".join(f"{c:<12}" for c in allband[i:i + 6]))
+    L.append("")
+
+    single = Counter()
+    for c, v in call_bands.items():
+        if len(v) == 1:
+            single[next(iter(v))] += 1
+    width = 5 + 7 * len(bands)
+    L.append(_cbs_title("Single Band QSOs", width))
+    L.append(f"{'Band':<5}" + "".join(f"{disp[b]:>7}" for b in bands))
+    L.append("-" * width)
+    L.append(f"{'QSOs':<5}" + band_cells(single))
+    L.append("")
+    return "\n".join(L)
 
 
 def analyze(qsos, sources, opts=None):
@@ -740,6 +1129,7 @@ def analyze(qsos, sources, opts=None):
                          "ssn": rec["ssn"] if rec else None,
                          "a": rec["a"] if rec else None})
     out["days"] = days_out
+    out["cbs"] = cbs_report(rows)
     return out
 
 
@@ -822,7 +1212,7 @@ class Handler(BaseHTTPRequestHandler):
                 text.append(chunk)
         qsos = []
         for t in text:
-            qsos.extend(parse_adif_records(t))
+            qsos.extend(records_from_text(t))
         if not sources:
             sources = ["log"]
         sid = cache_session(qsos, sources)
@@ -973,15 +1363,18 @@ PAGE = r"""<!doctype html>
  select,input[type=number]{background:var(--input);color:var(--ink);border:1px solid var(--bd);border-radius:7px;padding:4px 8px;font:inherit;font-size:13px}
  button.btn{background:var(--btn);color:var(--ink);border:1px solid var(--bd);border-radius:7px;padding:5px 12px;cursor:pointer;font:inherit;font-size:13px}
  button.btn:hover{background:var(--btnh)}
+ #cbsPre{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);
+   background:var(--canvas);border:1px solid var(--bd);border-radius:8px;padding:14px;
+   overflow:auto;max-height:70vh;white-space:pre}
 </style></head>
 <body>
-<header><h1>LOGAN</h1><span class=sub id=hsub>Ham Radio Log Analysis — drop an ADIF file to begin</span>
+<header><h1>LOGAN</h1><span class=sub id=hsub>Ham Radio Log Analysis — drop an ADIF or Cabrillo file to begin</span>
   <button id=themeBtn class=btn style="margin-left:auto">☀︎ Light</button></header>
 <div class=wrap>
   <div id=drop>
-    <b>Drop ADIF logs here</b> or click to choose<br>
-    <span class=note>.adi / .adif &nbsp;·&nbsp; multiple files allowed &nbsp;·&nbsp; everything stays on your machine</span>
-    <input type=file id=file accept=".adi,.adif,text/plain" multiple>
+    <b>Drop ADIF or Cabrillo logs here</b> or click to choose<br>
+    <span class=note>.adi / .adif / .log (Cabrillo) &nbsp;·&nbsp; multiple files allowed &nbsp;·&nbsp; everything stays on your machine</span>
+    <input type=file id=file accept=".adi,.adif,.log,.cbr,.txt,text/plain" multiple>
   </div>
 
   <div id=app class=hide>
@@ -1099,6 +1492,10 @@ PAGE = r"""<!doctype html>
         <canvas id=kChart></canvas></div>
       <div class=panel><h2>Per-day QSO totals</h2><canvas id=dayChart></canvas></div>
     </div>
+
+    <div class=panel id=cbsPanel><h2>CBS-style report <span class=note>(text statistics after "Cabrillo Statistics" by K5KA &amp; N6TV — rate table, dupes, best rates, continent / country / multiplier by band)</span></h2>
+      <div style="margin:0 0 10px"><button class=btn id=cbsSave>Download report (.txt)</button></div>
+      <pre id=cbsPre></pre></div>
     </div><!-- /tabOverall -->
 
     <div id=tabOps class="tab hide">
@@ -1710,7 +2107,16 @@ function render(d){
   chart('#dayChart',{type:'bar',data:{labels:dl,
     datasets:[{data:d.days.map(x=>x.count),backgroundColor:'#2196F3'}]},
     options:{plugins:{legend:{display:false}},scales:AX}});
+
+  // CBS-style text report.
+  if(d.cbs){ $('#cbsPanel').classList.remove('hide'); $('#cbsPre').textContent=d.cbs; }
+  else $('#cbsPanel').classList.add('hide');
 }
+
+$('#cbsSave').onclick=()=>{ if(!D||!D.cbs) return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([D.cbs],{type:'text/plain'}));
+  a.download='logan_cbs_report.txt'; a.click(); URL.revokeObjectURL(a.href); };
 
 // ---- light / dark theme ----
 function applyTheme(light){

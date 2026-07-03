@@ -224,6 +224,140 @@ class TestAnalyze(unittest.TestCase):
         self.assertEqual(common["meta"]["n_rare"], 0)
 
 
+CAB_SAMPLE = """START-OF-LOG: 3.0
+CONTEST: CQ-WW-CW
+CALLSIGN: N6RO
+OPERATORS: WU6P N6RO
+QSO: 28026 CW 2024-11-23 0000 N6RO 599 3 VK9DX 599 32
+QSO: 14035 CW 2024-11-23 0001 N6RO 599 3 K3ATO 599 05
+QSO: 14035 CW 2024-11-23 0102 N6RO 599 3 K3ATO 599 05
+X-QSO: 7021 CW 2024-11-23 0203 N6RO 599 3 W1AW 599 05
+END-OF-LOG:
+"""
+
+
+class TestCabrillo(unittest.TestCase):
+    def test_parse_fields(self):
+        recs = logan.parse_cabrillo_records(CAB_SAMPLE)
+        self.assertEqual(len(recs), 3)               # X-QSO skipped
+        q = recs[0]
+        self.assertEqual(q["CALL"], "VK9DX")
+        self.assertEqual(q["BAND"], "10M")
+        self.assertEqual(q["MODE"], "CW")
+        self.assertEqual(q["QSO_DATE"], "20241123")
+        self.assertEqual(q["TIME_ON"], "000000")
+        self.assertEqual(q["RST_RCVD"], "599")
+        self.assertEqual(q["SRX_STRING"], "32")
+        self.assertEqual(q["STATION_CALLSIGN"], "N6RO")
+        self.assertEqual(q["CONTEST_ID"], "CQ-WW-CW")
+        self.assertEqual(q["APP_LOGAN_OPS"], "WU6P N6RO")
+
+    def test_khz_to_band(self):
+        self.assertEqual(logan.khz_to_band("1830"), "160M")
+        self.assertEqual(logan.khz_to_band("3512"), "80M")
+        self.assertEqual(logan.khz_to_band("7021"), "40M")
+        self.assertEqual(logan.khz_to_band("21007"), "15M")
+        self.assertEqual(logan.khz_to_band("nope"), "")
+
+    def test_records_from_text_detects_format(self):
+        self.assertEqual(len(logan.records_from_text(CAB_SAMPLE)), 3)
+        self.assertEqual(len(logan.records_from_text(SAMPLE)), 4)
+
+    def test_analyze_accepts_cabrillo(self):
+        r = logan.analyze(logan.parse_cabrillo_records(CAB_SAMPLE), ["cab"])
+        self.assertEqual(r["meta"]["total"], 3)
+        self.assertEqual(r["meta"]["home"]["call"], "N6RO")
+
+
+class TestOverrides(unittest.TestCase):
+    def test_uk_m_series(self):
+        for call, ent in [("MD4K", "Isle of Man"), ("MM0T", "Scotland"),
+                          ("MW4R", "Wales"), ("M5B", "England"),
+                          ("2E0ABC", "England"), ("MI0AB", "Northern Ireland")]:
+            cont, _, _, e, _, _, _ = logan.classify({"CALL": call})
+            self.assertEqual((cont, e), ("EU", ent), call)
+
+    def test_guantanamo_only_two_letter_kg4(self):
+        self.assertEqual(logan.classify({"CALL": "KG4MA"})[3], "Guantanamo Bay")
+        for call in ("KG4IGC", "KG1E", "KG5TA"):
+            self.assertEqual(logan.classify({"CALL": call})[3],
+                             "United States of America", call)
+
+    def test_portugal_islands_and_9w(self):
+        self.assertEqual(logan.classify({"CALL": "CR3DX"})[3], "Madeira Is.")
+        self.assertEqual(logan.classify({"CALL": "CQ3W"})[3], "Madeira Is.")
+        self.assertEqual(logan.classify({"CALL": "CT8AB"})[3], "Azores")
+        self.assertEqual(logan.classify({"CALL": "CT1AB"})[3], "Portugal")
+        self.assertEqual(logan.classify({"CALL": "9W2VGR"})[3], "West Malaysia")
+
+
+class TestCbsReport(unittest.TestCase):
+    def test_small_sample(self):
+        recs = logan.parse_cabrillo_records(CAB_SAMPLE)
+        rows = sorted(((logan.qso_datetime(q), q) for q in recs),
+                      key=lambda r: r[0])
+        rep = logan.cbs_report(rows)
+        self.assertIn("Gross QSOs=3        Dupes=1        Net QSOs=2", rep)
+        self.assertIn("Unique callsigns worked = 2", rep)
+        self.assertIn("CONTEST: CQ-WW-CW", rep)
+        self.assertIn("OPERATORS: WU6P N6RO", rep)
+
+    def test_empty(self):
+        self.assertEqual(logan.cbs_report([]), "")
+
+    def test_analyze_carries_report(self):
+        r = logan.analyze(logan.parse_adif_records(SAMPLE), ["s"])
+        self.assertIn("Q S O   R a t e   S u m m a r y", r["cbs"])
+
+    def test_n6ro_2024_matches_reference_cbs(self):
+        """The 2024 CQWW CW N6RO public log, cross-checked against the actual
+        CBS (Cabrillo Statistics 10g) output for the same log."""
+        p = DOC / "n6ro_2024cw.log"
+        if not p.exists():
+            self.skipTest("n6ro_2024cw.log not bundled")
+        recs = logan.records_from_text(p.read_text(encoding="utf-8",
+                                                   errors="replace"))
+        self.assertEqual(len(recs), 6592)
+        rows = sorted(((logan.qso_datetime(q), q) for q in recs),
+                      key=lambda r: r[0])
+        rep = logan.cbs_report(rows)
+        # headline counts
+        self.assertIn("Gross QSOs=6592        Dupes=90        Net QSOs=6502",
+                      rep)
+        self.assertIn("Unique callsigns worked = 3814", rep)
+        # best-window rates, incl. the exact windows CBS reports
+        self.assertIn("The best 60 minute rate was 409/hour"
+                      " from 0005 to 0104", rep)
+        self.assertIn("The best 30 minute rate was 452/hour"
+                      " from 0011 to 0040", rep)
+        self.assertIn("The best 10 minute rate was 492/hour"
+                      " from 0018 to 0027", rep)
+        # per-minute histogram, first and last lines
+        self.assertIn("11 QSOs/minute    2 times.", rep)
+        self.assertIn(" 1 QSOs/minute  675 times.", rep)
+        # first hour row and the per-band totals row of the rate table
+        self.assertRegex(rep, r"0000 +0 +7 +74 +85 +124 +112 +402 +402")
+        self.assertRegex(rep, r"Total +108 +593 +1129 +1455 +1576 +1641 +6502")
+        # callsign-length histogram
+        self.assertRegex(rep, r"   3 +80\n +4 +1675\n +5 +1656\n +6 +3008")
+        # multiplier (received CQ zone) rows match CBS exactly
+        self.assertRegex(rep, r"25 +45 +288 +459 +232 +516 +597 +2137")
+        self.assertRegex(rep, r"14 +0 +31 +124 +315 +309 +331 +1110")
+        # multi-band histogram + the 33 six-band stations
+        for line in ("1 bands    2513", "2 bands     579", "3 bands     286",
+                     "4 bands     240", "5 bands     163", "6 bands      33"):
+            self.assertIn(line, rep)
+        self.assertIn("The following stations were worked on 6 bands:", rep)
+        for call in ("KH6J", "ZF1A", "PJ2T", "JS2MKU"):
+            self.assertIn(call, rep)
+        # single-band station counts per band
+        self.assertRegex(rep, r"QSOs +45 +189 +312 +631 +590 +746")
+        # continent totals: Africa/SA/OC agree with CBS exactly
+        self.assertRegex(rep, r"Africa +0 +9 +14 +16 +22 +18 +79")
+        self.assertRegex(rep, r"South America +5 +9 +25 +29 +53 +115 +236")
+        self.assertRegex(rep, r"Oceania +2 +21 +58 +21 +50 +77 +229")
+
+
 class TestRealLogs(unittest.TestCase):
     """Validate against the bundled real logs if present."""
 

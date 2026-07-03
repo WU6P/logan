@@ -1,11 +1,22 @@
 # logan — ham radio log analyzer
 
-A web-based analyzer for ADIF (`.adi`/`.adif`) amateur-radio logs. Drop one or
-more logs onto the page and logan reports your operating activity: rate over
-time, first/last contact per continent, band split, CQ/ITU zones, DXCC
-countries worked, and more.
+A web-based analyzer for ADIF (`.adi`/`.adif`) and Cabrillo (`.log`)
+amateur-radio logs. Drop one or more logs onto the page and logan reports your
+operating activity: rate over time, first/last contact per continent, band
+split, CQ/ITU zones, DXCC countries worked, and more — including a classic
+**CBS-style text statistics report**.
 
 Pure Python standard library — **no third-party dependencies** to run.
+
+## Repository & status
+
+- **GitHub:** <https://github.com/WU6P/logan> (private).
+- **Tests:** 45 (`python3 test_logan.py`). A few load bundled real logs
+  (personal ADIF + the N6RO 2024 CQWW CW public Cabrillo log) and **skip**
+  automatically when those files are absent — so a fresh clone runs green;
+  supply your own logs to exercise them.
+- Shares the DXCC call-area-split resolution fix with `Contest_Plan` and
+  `log_check` (see the `dxcc_prefix_resolution` skill).
 
 ## Run
 
@@ -15,8 +26,10 @@ python3 logan.py --port 9000     # pick a port
 python3 logan.py --no-browser    # don't auto-open a browser
 ```
 
-Then drag your ADIF file(s) onto the page. Everything is processed locally; no
-data leaves your machine. A **light / dark theme** toggle sits in the top-right
+Then drag your ADIF or Cabrillo file(s) onto the page (Cabrillo, e.g. the
+[CQWW public logs](https://cqww.com/publiclogs/), is auto-detected and parsed —
+frequency → band, received exchange kept as the multiplier). Everything is
+processed locally; no data leaves your machine. A **light / dark theme** toggle sits in the top-right
 corner (your choice is remembered).
 
 The dashboard has two tabs: **Overall** (everything below) and **Multi-operator**
@@ -78,6 +91,16 @@ The dashboard has two tabs: **Overall** (everything below) and **Multi-operator*
   "QSOs by K-index" chart (how disturbed the bands were when you worked), and an
   optional **K-index overlay** on the contest-timeline chart.
 - **Per-day totals.**
+- **CBS-style report** — a monospace text report in the format of the classic
+  *Cabrillo Statistics* (CBS, by K5KA & N6TV): hourly per-band QSO-rate table
+  with cumulative totals, gross/dupe/net counts, unique calls, best 60/30/10
+  minute rates (with their exact windows), a best-1-minute-rate histogram,
+  continent / country / multiplier (CQ zone) × band matrices,
+  callsign-length histogram, multi-band QSO summary with the list of stations
+  worked on all bands, and single-band station counts. Downloadable as `.txt`;
+  respects the band/continent filters. Validated against actual CBS 10g output
+  for the N6RO 2024 CQWW CW log (rate table, dupes, uniques, best-rate windows,
+  multiplier rows and multi-band counts all match exactly).
 
 ## Configurable
 
@@ -123,7 +146,7 @@ your machine).
 
 | file | purpose |
 |------|---------|
-| `logan.py` | the app: ADIF parser, DXCC resolver, analysis, web server + UI |
+| `logan.py` | the app: ADIF + Cabrillo parsers, DXCC resolver, analysis, CBS-style report, web server + UI |
 | `dxcc.json` | prefix → entity/continent/ITU/CQ lookup (committed; loaded at runtime) |
 | `build_dxcc.py` | regenerates `dxcc.json` from the ARRL list |
 | `itu.json` | ITU call-sign-series → country/continent (2nd-priority source) |

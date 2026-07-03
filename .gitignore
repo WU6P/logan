@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Personal QSO logs — not published (used locally as test input)
+doc/WU6P_2026.adi
+doc/WU6P_JIDX.adi
