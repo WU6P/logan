@@ -246,24 +246,27 @@ def enrich_coords(entities):
         return
     hit = 0
     for e in entities:
+        # Exact cty.dat name match first: prefix matching lies when entities
+        # share a prefix block (Asiatic Russia's UA... = European Russia's) or
+        # when another entity's alias list claimed the prefix (Spratly's
+        # "9M2/..." exact-call aliases swallow West Malaysia's 9M2).
+        nm = _norm_name(e["entity"])
+        got = CTY_NAMES.get(nm)
         cands = []
         for p in e["prefixes"]:
             cands.append(p)
             if len(p) == 3 and p[2].isdigit():   # 9A6 -> also try 9A
                 cands.append(p[:2])
-        got = None
-        for p in cands:
-            if p in coords:
-                got = coords[p]
-                break
-        if got is None:                          # fall back to entity-name match
-            nm = _norm_name(e["entity"])
-            got = CTY_NAMES.get(nm)
-            if got is None:                      # try a contained name (China...)
-                for cn, c in CTY_NAMES.items():
-                    if len(cn) >= 4 and (cn in nm or nm in cn):
-                        got = c
-                        break
+        if got is None:
+            for p in cands:
+                if p in coords:
+                    got = coords[p]
+                    break
+        if got is None:                          # try a contained name (China...)
+            for cn, c in CTY_NAMES.items():
+                if len(cn) >= 4 and (cn in nm or nm in cn):
+                    got = c
+                    break
         if got is not None:
             e["lat"], e["lon"] = got
             hit += 1
