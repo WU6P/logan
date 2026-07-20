@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang=en><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>logan — ham log analysis</title>
+<link rel="stylesheet" href="styles.css?v=1">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+</head>
+<body>
+<header><h1>LOGAN</h1><span class=sub id=hsub>Ham Radio Log Analysis — drop an ADIF or Cabrillo file to begin</span>
+  <button id=themeBtn class=btn style="margin-left:auto">☀︎ Light</button></header>
+<div class=wrap>
+  <div id=drop>
+    <b>Drop ADIF or Cabrillo logs here</b> or click to choose<br>
+    <span class=note>.adi / .adif / .log (Cabrillo) &nbsp;·&nbsp; multiple files allowed &nbsp;·&nbsp; everything stays on your machine</span>
+    <input type=file id=file accept=".adi,.adif,.log,.cbr,.txt,text/plain" multiple>
+  </div>
+
+  <div id=app class=hide>
+    <div class=tabbar>
+      <button class="tabbtn active" data-tab=tabOverall>Overall</button>
+      <button class="tabbtn hide" id=opsTabBtn data-tab=tabOps>Multi-operator</button>
+    </div>
+    <div id=tabOverall class=tab>
+    <div class="panel" id=ctl><h2>Filters &amp; options <span class=note id=filtNote></span></h2>
+      <div class=ctlrow>
+        <div class=grp><span class=lbl>Bands</span><span id=bandChips></span></div>
+        <div class=grp><span class=lbl>Continents</span><span id=contChips></span></div>
+      </div>
+      <div class=ctlrow style="margin-top:12px">
+        <div class=grp><span class=lbl>Timeline breakdown</span>
+          <select id=tlMode><option value=band>by band</option>
+            <option value=cont>by continent</option><option value=none>total only</option></select></div>
+        <div class=grp><span class=lbl>Overlay</span>
+          <label class=chip><input type=checkbox id=tlCum checked> cumulative</label>
+          <label class=chip><input type=checkbox id=tlK> K-index</label></div>
+        <div class=grp><span class=lbl>DXCC rows</span>
+          <input type=number id=topN value=25 min=1 max=400 style="width:70px"></div>
+        <button class=btn id=reset>Reset filters</button>
+      </div>
+      <div class=ctlrow style="margin-top:10px">
+        <span class=note id=solarNote></span>
+      </div>
+    </div>
+
+    <div class=cards id=cards></div>
+
+    <div class=panel><h2>Contest timeline — rate + cumulative <span class=note>(one chart, several views: bars per hour, running total line, band/continent breakdown)</span></h2>
+      <canvas id=tlChart></canvas></div>
+
+    <div class=panel><h2>Hourly rate by UTC hour-of-day — stacked by band</h2><canvas id=hourChart></canvas></div>
+
+    <div class=grid2>
+      <div class=panel><h2>Band split</h2><canvas id=bandChart></canvas></div>
+      <div class=panel><h2>Continents <span id=srcNote class=note></span></h2><canvas id=contChart></canvas></div>
+    </div>
+
+    <div class=panel><h2>First / last contact per continent</h2>
+      <table id=contTable><thead><tr><th>Continent</th><th class=n>QSOs</th><th class=n>Share</th>
+        <th>First contact</th><th>Last contact</th></tr></thead><tbody></tbody></table></div>
+
+    <div class=grid2>
+      <div class=panel><h2>CQ zones</h2><canvas id=cqChart></canvas></div>
+      <div class=panel><h2>ITU zones</h2><canvas id=ituChart></canvas></div>
+    </div>
+
+    <div class=grid2>
+      <div class=panel id=runspPanel><h2>Run vs S&amp;P</h2><canvas id=runspChart></canvas></div>
+      <div class=panel><h2>Modes</h2><canvas id=modeChart></canvas></div>
+    </div>
+
+    <div class=panel><h2>DXCC entities (countries) <span class=note id=dxccNote></span></h2>
+      <div class=scroll><table id=dxccTable><thead><tr><th>Entity</th><th>Cont</th><th class=n>QSOs</th>
+        <th>First</th><th>Last</th></tr></thead><tbody></tbody></table></div></div>
+
+    <div class=panel id=worldPanel><h2>Worked DXCC entities — world map <span class=note id=worldNote>(bubble size = QSO count · color = continent)</span></h2>
+      <div class=ctlrow style="margin-bottom:12px">
+        <div class=grp><span class=lbl>Center</span>
+          <input id=worldCenter placeholder="grid CM87 / CM87xi, or lat,lon" style="width:185px">
+          <button class=btn id=worldGo>Set</button></div>
+        <div class=grp><span class=lbl>Projection</span>
+          <select id=worldProj><option value=natural>Natural Earth</option>
+            <option value=equirect>Equirectangular</option></select></div>
+        <span class=note id=worldCNote></span>
+      </div>
+      <svg id=worldMap viewBox="0 0 960 500" style="width:100%;height:auto;background:var(--canvas);border-radius:8px"></svg></div>
+
+    <div class=panel id=azPanel><h2>Azimuthal map — great-circle, centered on your station</h2>
+      <div class=ctlrow style="margin-bottom:12px">
+        <div class=grp><span class=lbl>Center</span>
+          <input id=azCenter placeholder="grid CM87 / CM87xi, or lat,lon" style="width:185px">
+          <button class=btn id=azGo>Set</button></div>
+        <div class=grp><label class=chip><input type=checkbox id=azLines> great-circle lines</label></div>
+        <span class=note id=azNote></span>
+      </div>
+      <svg id=azMap viewBox="0 0 540 540" style="width:100%;max-width:580px;height:auto;display:block;margin:0 auto;background:var(--canvas);border-radius:8px"></svg></div>
+
+    <div class=panel id=dirPanel><h2>QSO directions — beam headings in 5° slots <span class=note>(bearing from your station to each entity; N=0° up, clockwise)</span></h2>
+      <div class=ctlrow style="margin-bottom:12px">
+        <div class=grp><span class=lbl>Center</span>
+          <input id=dirCenter placeholder="grid CM87 / CM87xi, or lat,lon" style="width:175px">
+          <button class=btn id=dirGo>Set</button></div>
+        <div class=grp><span class=lbl>Band</span><select id=dirBand></select></div>
+        <div class=grp><span class=lbl>Mode</span><select id=dirMode></select></div>
+        <div class=grp><label class=chip title="US/Canada are placed at a call-area regional centroid — approximate"><input type=checkbox id=dirDom checked> include US/Canada</label></div>
+        <div class=grp><label class=chip><input type=checkbox id=dirBox checked> distance box plot</label></div>
+        <div class=grp><label class=chip><input type=checkbox id=dirTable checked> direction × hour table</label></div>
+        <span class=note id=dirNote></span>
+      </div>
+      <div class=dirwrap>
+        <figure class=dirfig><figcaption class=note>Summary — all hours combined<br>(radius = QSO count per 5° slot)</figcaption>
+          <canvas id=roseChart width=440 height=440></canvas></figure>
+        <div id=dirHeats class=dirwrap></div>
+      </div>
+      <div id=boxPanel style="margin-top:18px">
+        <div class=note style="margin-bottom:4px">QSO distance by band — box = 25–75%, line = median, whiskers = 1.5×IQR, dots = outliers (great-circle km from center)</div>
+        <canvas id=distBox width=900 height=300 style="width:100%;height:auto"></canvas>
+      </div>
+      <div id=dirTablePanel style="margin-top:18px">
+        <div class=note style="margin-bottom:4px">Direction × UTC-hour activity — rows = UTC hour-of-day, columns = 5° heading; color = QSO count (rate)</div>
+        <div class=scroll><table id=dirHeatTable class=dirheattable><thead></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+
+    <div class=panel id=swPanel><h2>Space weather vs activity — per day <span class=note>(QSOs as bars; SFI &amp; sunspot number &amp; A-index as lines)</span></h2>
+      <canvas id=swChart></canvas></div>
+
+    <div class=grid2>
+      <div class=panel id=kPanel><h2>QSOs by K-index <span class=note>(geomagnetic conditions you worked through; 0 = quiet, 5+ = storm)</span></h2>
+        <canvas id=kChart></canvas></div>
+      <div class=panel><h2>Per-day QSO totals</h2><canvas id=dayChart></canvas></div>
+    </div>
+
+    <div class=panel id=cbsPanel><h2>CBS-style report <span class=note>(text statistics after "Cabrillo Statistics" by K5KA &amp; N6TV — rate table, dupes, best rates, continent / country / multiplier by band)</span></h2>
+      <div style="margin:0 0 10px"><button class=btn id=cbsSave>Download report (.txt)</button></div>
+      <pre id=cbsPre></pre></div>
+    </div><!-- /tabOverall -->
+
+    <div id=tabOps class="tab hide">
+    <div class=panel id=opPanel><h2>Per-operator <span class=note>multi-op breakdown — QSOs, bands, rate</span></h2>
+      <canvas id=opChart></canvas>
+      <div class=scroll style="margin-top:14px"><table id=opTable>
+        <thead><tr><th>Operator</th><th class=n>QSOs</th><th class=n>Unique</th><th class=n>DXCCs</th>
+          <th class=n>Rate/hr</th><th class=n>Best 10</th><th class=n>Best 60</th><th class=n>Hours-on</th>
+          <th>Span</th><th>First</th><th>Last</th></tr></thead><tbody></tbody></table></div>
+      <div class=note style="margin:18px 0 4px">Operator × band matrix (QSOs)</div>
+      <div class=scroll><table id=opMatrix class=matrix><thead></thead><tbody></tbody></table></div></div>
+
+    <div class=panel id=lbPanel><h2>Operator leaderboard</h2>
+      <div id=lbGrid class=lbgrid></div></div>
+    </div><!-- /tabOps -->
+  </div>
+  <div id=msg class=note style="margin-top:14px"></div>
+  <p class=privacy>🔒 Your log is read and analyzed entirely in your browser on this
+    device. It is never uploaded, sent to a server, or stored in the cloud.</p>
+</div>
+<script type="module" src="app.js?v=1"></script>
+</body></html>

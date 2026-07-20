@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang=en><head><meta charset=utf-8><title>logan self-test</title>
+<style>body{font:14px/1.5 ui-monospace,Menlo,monospace;background:#0f1419;color:#e6edf3;padding:24px}
+.ok{color:#4CAF50}.bad{color:#ff6b6b}h1{font-size:18px}</style></head>
+<body>
+<h1>logan — in-browser self-test</h1>
+<p>Loads the real lookup tables over HTTP, runs the engine on an embedded
+Cabrillo sample, and checks the results. Open via <code>http://localhost:…/_selftest.html</code>.</p>
+<pre id=out>running…</pre>
+<script type="module">
+import { setData, recordsFromText, analyze, resolveDxcc, classify } from './logcore.js';
+const out = document.getElementById('out');
+let pass = 0, fail = 0; const lines = [];
+const log = (ok, m) => { lines.push((ok ? '  ok  ' : ' FAIL ') + m); ok ? pass++ : fail++; };
+const eq = (a, b, m) => log(JSON.stringify(a) === JSON.stringify(b), `${m}  (got ${JSON.stringify(a)})`);
+
+const SAMPLE = `START-OF-LOG: 3.0
+CALLSIGN: N6RO
+CONTEST: CQ-WW-CW
+QSO: 14000 CW 2024-11-23 0000 N6RO 599 03 JA1ABC 599 25
+QSO: 21000 CW 2024-11-23 0001 N6RO 599 03 DL1XYZ 599 14
+QSO: 14000 CW 2024-11-23 0002 N6RO 599 03 KH6ZZ 599 31
+END-OF-LOG:`;
+
+(async () => {
+  try {
+    const [dxcc, itu, rare, solar] = await Promise.all(
+      ['dxcc', 'itu', 'rare', 'solar'].map(n => fetch(n + '.json').then(r => r.json())));
+    setData({ dxcc, itu, rare, solar });
+    log(true, 'lookup tables loaded');
+
+    eq((resolveDxcc('KH6ZZ') || {}).entity, 'Hawaii', 'KH6→Hawaii override');
+    eq(classify({ CALL: 'JA1ABC' })[0], 'AS', 'JA→Asia');
+
+    const recs = recordsFromText(SAMPLE);
+    eq(recs.length, 3, 'parsed 3 Cabrillo QSOs');
+    const rep = analyze(recs, ['selftest']);
+    eq(rep.meta.total, 3, 'analyze total = 3');
+    eq(rep.meta.unique_calls, 3, 'unique calls = 3');
+    eq(rep.meta.n_bands, 2, '2 bands');
+    log(rep.dxcc.some(e => e.entity === 'Hawaii'), 'Hawaii in DXCC table');
+    log(rep.cbs.includes('Gross QSOs=3'), 'CBS report present');
+    log(rep.timeline.length >= 1, 'timeline built');
+  } catch (e) {
+    log(false, 'threw: ' + e);
+  }
+  const head = fail ? `FAILED — ${pass} ok, ${fail} bad\n\n` : `ALL PASS — ${pass} checks\n\n`;
+  out.textContent = head + lines.join('\n');
+  out.className = fail ? 'bad' : 'ok';
+})();
+</script>
+</body></html>
