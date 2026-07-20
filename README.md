@@ -10,7 +10,10 @@ Pure Python standard library — **no third-party dependencies** to run.
 
 ## Repository & status
 
-- **GitHub:** <https://github.com/WU6P/logan> (private).
+- **GitHub:** <https://github.com/WU6P/logan> — public, MIT licensed (see `LICENSE`).
+- **Live web app:** <https://wu6p.github.io/logan/> — the same analyzer running
+  100% in the browser (no server, no install). It's a JavaScript port of this
+  engine; see `docs/README.md`.
 - **Tests:** 45 (`python3 test_logan.py`). A few load bundled real logs
   (personal ADIF + the N6RO 2024 CQWW CW public Cabrillo log) and **skip**
   automatically when those files are absent — so a fresh clone runs green;
