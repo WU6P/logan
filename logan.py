@@ -39,9 +39,13 @@ from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import solar
+from hamcore.adif import parse_adif_records
+from hamcore.solar import gfz as solar
 
 HERE = Path(__file__).resolve().parent
+
+# logan keeps its own GFZ snapshot (since 2000); hamcore owns the reader.
+solar.use_snapshot(HERE / "data" / "kp_ap_f107.txt")
 
 
 # --------------------------------------------------------------------------
@@ -50,40 +54,6 @@ HERE = Path(__file__).resolve().parent
 
 # An ADIF record is a run of fields like <CALL:5>W1AW <BAND:3>20m ... <EOR>.
 TAG_RE = re.compile(r"<([A-Za-z0-9_]+)(?::(\d+))?(?::[^>]*)?>")
-
-
-def parse_adif_records(text):
-    """Parse ADIF text into a list of dicts (one per QSO). Header is skipped.
-
-    Field names are upper-cased. Robust to a missing header, extra whitespace,
-    fields with no length specifier, and tag-like text inside field values.
-    """
-    eoh = re.search(r"<EOH>", text, re.IGNORECASE)
-    pos = eoh.end() if eoh else 0
-    records, current = [], {}
-    while True:
-        m = TAG_RE.search(text, pos)
-        if not m:
-            break
-        name = m.group(1).upper()
-        length = m.group(2)
-        pos = m.end()
-        if name == "EOR":
-            if current:
-                records.append(current)
-                current = {}
-            continue
-        if name == "EOH":
-            continue
-        if length is not None:
-            ln = int(length)
-            current[name] = text[pos:pos + ln]
-            pos += ln
-        else:
-            current[name] = ""
-    if current:
-        records.append(current)
-    return records
 
 
 def qso_datetime(qso):

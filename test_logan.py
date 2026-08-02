@@ -2,12 +2,14 @@
 """Tests for logan.  Run:  python3 -m pytest test_logan.py   (or python3 test_logan.py)"""
 
 import json
+import pathlib
 import unittest
 from datetime import date, datetime
 from pathlib import Path
 
 import logan
-import solar
+import hamcore
+from hamcore.solar import gfz as solar
 
 HERE = Path(__file__).resolve().parent
 DOC = HERE / "doc"
@@ -426,13 +428,14 @@ class TestSolar(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             p = Path(t) / "kp.txt"
             p.write_text(text)
-            orig, solar.DATA, solar._cache = solar.DATA, p, None
+            orig, solar._cache = solar.DATA, None
+            solar.use_snapshot(p)
             try:
                 self.assertTrue(solar.day_record(date(2024, 5, 11))["definitive"])
                 self.assertTrue(solar.day_record(date(2024, 5, 12))["definitive"])
                 self.assertFalse(solar.day_record(date(2024, 5, 13))["definitive"])
             finally:
-                solar.DATA, solar._cache = orig, None
+                solar.use_snapshot(orig)
 
     def test_shipped_web_snapshot_agrees_with_the_desktop_parser(self):
         """docs/solar.json is baked by docs/build_solar.py and shipped to the
@@ -538,6 +541,32 @@ class TestDataFile(unittest.TestCase):
         self.assertEqual(d["3G"]["cont"], "SA")
         self.assertEqual(d["XM"]["cont"], "NA")        # Canada
         self.assertEqual(d["DS"]["cont"], "AS")        # Korea
+
+
+class TestVendoredHamcore(unittest.TestCase):
+    """locate/sun/bands/solar/adif live in hamcore now. Editing the vendored
+    copy here instead of the source is the exact failure that let log_check
+    resolve India to the South Pole for months, so it is a test."""
+
+    def test_the_vendored_copy_has_not_been_edited(self):
+        self.assertEqual(hamcore.verify(), [])
+
+    def test_data_files_match_hamcore(self):
+        """These projects still read their own dxcc/itu/rare.json — logan
+        generates them — so hamcore does not own them yet. What it can do is
+        make divergence loud: this is the exact drift that left log_check
+        resolving India to the South Pole, and nine sub-Antarctic entities
+        stranded at (-90, 0) in every copy but one."""
+        import hamcore
+        here = pathlib.Path(__file__).resolve().parent
+        for name in ("dxcc.json", "itu.json", "rare.json"):
+            mine = here / name
+            if not mine.exists():
+                continue
+            self.assertEqual(
+                json.loads(mine.read_text()),
+                json.loads(hamcore.data_path(name).read_text()),
+                f"{name} has drifted from hamcore — copy one over the other")
 
 
 if __name__ == "__main__":

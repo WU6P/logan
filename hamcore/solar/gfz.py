@@ -1,13 +1,20 @@
+# ---------------------------------------------------------------------------
+# VENDORED from hamcore 1.0.0 -- do not edit here.
+# Edit AI/hamcore/hamcore/solar/gfz.py and re-run:
+#     python3 -m hamcore.vendor sync
+# ---------------------------------------------------------------------------
 #!/usr/bin/env python3
-"""Solar / geomagnetic conditions lookup for logan.
+"""The definitive daily solar / geomagnetic record, from GFZ Potsdam.
 
 Source: GFZ Potsdam combined file `Kp_ap_Ap_SN_F107_since_1932.txt`, which gives
 per UT day the 10.7 cm solar flux (SFI = F10.7), the international sunspot
 number (SN), the daily geomagnetic A index (Ap), and Kp in eight 3-hour blocks
 (so a QSO's K index is matched to the actual time of day, not just the date).
 
-A snapshot lives in data/kp_ap_f107.txt (since 2000). `update()` refreshes it
-from GFZ when the network is available; logan works offline from the snapshot.
+A snapshot lives at `DATA` — point it somewhere with `use_snapshot(path)`.
+Each consumer keeps its own, because they cover different date ranges.
+`update()` refreshes it from GFZ when the network is there; everything works
+offline from whatever the snapshot already holds.
 
 File columns (whitespace separated, missing = -1):
   YYYY MM DD days days_m Bsr dB  Kp1..Kp8  ap1..ap8  Ap  SN  F10.7obs F10.7adj D
@@ -17,8 +24,19 @@ import urllib.request
 from datetime import date, timedelta
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-DATA = HERE / "data" / "kp_ap_f107.txt"
+USER_AGENT = "hamcore/1.0 (+amateur radio, stdlib urllib)"
+
+# Where the snapshot lives. Defaults to ./data/kp_ap_f107.txt relative to the
+# process, which is what every consumer already used; override at import time
+# with use_snapshot().
+DATA = Path("data") / "kp_ap_f107.txt"
+
+
+def use_snapshot(path):
+    """Point the reader at a snapshot file and drop the parsed cache."""
+    global DATA, _cache
+    DATA, _cache = Path(path), None
+    return DATA
 # Two GFZ files: the full archive (since 1932, ~5.5 MB) and a small rolling
 # "nowcast" of roughly the last 30 days (~8 KB, refreshed several times a day).
 URL_FULL = "https://kp.gfz.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt"
@@ -29,7 +47,7 @@ _cache = None
 
 
 def _fetch(url, timeout):
-    req = urllib.request.Request(url, headers={"User-Agent": "logan/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read().decode("utf-8", errors="replace")
 
@@ -95,43 +113,58 @@ def update(full=False, timeout=40):
         return False, f"update failed: {e}"
 
 
-def _parse():
-    """Parse the data file into {date: record}. Cached after first call."""
-    global _cache
-    if _cache is not None:
-        return _cache
+def parse(text):
+    """GFZ combined-file text -> {date: record}.
+
+    Split out from the file reader so it can be tested against a handful of
+    literal rows, and so callers that already hold the text (a download, a
+    fixture) do not have to write it to disk first."""
     by_date = {}
-    if DATA.exists():
-        for line in DATA.read_text(encoding="utf-8", errors="replace").splitlines():
-            if not line or line.startswith("#"):
-                continue
-            t = line.split()
-            if len(t) < 27:
-                continue
-            try:
-                y, mo, d = int(t[0]), int(t[1]), int(t[2])
-            except ValueError:
-                continue
+    for line in text.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        t = line.split()
+        if len(t) < 27:
+            continue
+        try:
+            y, mo, d = int(t[0]), int(t[1]), int(t[2])
             kp = [float(x) for x in t[7:15]]
             ap = [int(x) for x in t[15:23]]
             ApV, SN = int(t[23]), int(t[24])
             f_obs, f_adj = float(t[25]), float(t[26])
-            by_date[date(y, mo, d)] = {
-                "kp": [None if v < 0 else v for v in kp],
-                "ap": [None if v < 0 else v for v in ap],
-                "a": None if ApV < 0 else ApV,
-                "ssn": None if SN < 0 else SN,
-                "sfi": None if f_obs < 0 else f_obs,
-                "sfi_adj": None if f_adj < 0 else f_adj,
-                # GFZ's trailing D column is 0/1/2, not a boolean: 0 = Kp and
-                # SN preliminary, 1 = Kp definitive, 2 = both definitive. Kp
-                # is what conditions are matched on, so >= 1 counts. Testing
-                # == "1" labelled 99.6 % of the archive provisional.
-                "definitive": (t[27].isdigit() and int(t[27]) >= 1
-                               if len(t) > 27 else False),
-            }
-    _cache = by_date
+        except ValueError:
+            continue
+        by_date[date(y, mo, d)] = {
+            "kp": [None if v < 0 else v for v in kp],
+            # `ap` is the eight 3-hour values and `a` the single daily figure.
+            # Those names are too close for comfort — sonify independently
+            # called them "ap_blocks" and "ap" — so the unambiguous spellings
+            # are provided too, and the short ones kept for existing callers.
+            "ap": [None if v < 0 else v for v in ap],
+            "ap_blocks": [None if v < 0 else v for v in ap],
+            "a": None if ApV < 0 else ApV,
+            "ap_daily": None if ApV < 0 else ApV,
+            "ssn": None if SN < 0 else SN,
+            "sfi": None if f_obs < 0 else f_obs,
+            "sfi_adj": None if f_adj < 0 else f_adj,
+            # GFZ's trailing D column is 0/1/2, not a boolean: 0 = Kp and SN
+            # preliminary, 1 = Kp definitive, 2 = both definitive. Kp is what
+            # conditions are matched on, so >= 1 counts. Testing == "1"
+            # labelled 99.6 % of the archive (34,424 of 34,547 rows)
+            # provisional, and shipped that way in three projects.
+            "definitive": (t[27].isdigit() and int(t[27]) >= 1
+                           if len(t) > 27 else False),
+        }
     return by_date
+
+
+def _parse():
+    """The snapshot at DATA, parsed. Cached after first call."""
+    global _cache
+    if _cache is None:
+        _cache = (parse(DATA.read_text(encoding="utf-8", errors="replace"))
+                  if DATA.exists() else {})
+    return _cache
 
 
 def available():
