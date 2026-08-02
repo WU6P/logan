@@ -123,7 +123,12 @@ def _parse():
                 "ssn": None if SN < 0 else SN,
                 "sfi": None if f_obs < 0 else f_obs,
                 "sfi_adj": None if f_adj < 0 else f_adj,
-                "definitive": t[27] == "1" if len(t) > 27 else False,
+                # GFZ's trailing D column is 0/1/2, not a boolean: 0 = Kp and
+                # SN preliminary, 1 = Kp definitive, 2 = both definitive. Kp
+                # is what conditions are matched on, so >= 1 counts. Testing
+                # == "1" labelled 99.6 % of the archive provisional.
+                "definitive": (t[27].isdigit() and int(t[27]) >= 1
+                               if len(t) > 27 else False),
             }
     _cache = by_date
     return by_date

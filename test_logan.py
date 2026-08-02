@@ -3,7 +3,7 @@
 
 import json
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import logan
@@ -409,6 +409,51 @@ class TestSolar(unittest.TestCase):
 
     def test_missing_date_returns_none(self):
         self.assertIsNone(solar.conditions_at(datetime(1900, 1, 1, 0, 0)))
+
+    def test_definitive_flag_reads_the_whole_d_column(self):
+        """GFZ's trailing D column is 0/1/2, not a boolean: 0 = Kp and SN
+        preliminary, 1 = Kp definitive, 2 = both. Testing == "1" labelled
+        99.6 % of the archive provisional — D=2 is the normal case."""
+        import tempfile
+        from pathlib import Path
+
+        def row(day, d):
+            return (f"2024 05 {day:02d} 0 0 0 0 " + ("1.000 " * 8)
+                    + ("4 " * 8) + f"4 100 150.0 145.0 {d}")
+
+        text = "# header\n" + "\n".join(
+            (row(11, 2), row(12, 1), row(13, 0))) + "\n"
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t) / "kp.txt"
+            p.write_text(text)
+            orig, solar.DATA, solar._cache = solar.DATA, p, None
+            try:
+                self.assertTrue(solar.day_record(date(2024, 5, 11))["definitive"])
+                self.assertTrue(solar.day_record(date(2024, 5, 12))["definitive"])
+                self.assertFalse(solar.day_record(date(2024, 5, 13))["definitive"])
+            finally:
+                solar.DATA, solar._cache = orig, None
+
+    def test_shipped_web_snapshot_agrees_with_the_desktop_parser(self):
+        """docs/solar.json is baked by docs/build_solar.py and shipped to the
+        live site; it must not drift from solar.py's own reading."""
+        import json
+        from pathlib import Path
+        p = Path(__file__).resolve().parent / "docs" / "solar.json"
+        if not p.exists():
+            self.skipTest("no docs/solar.json")
+        rows = json.loads(p.read_text())
+        checked = 0
+        for k, v in list(rows.items())[::400]:
+            rec = solar.day_record(date.fromisoformat(k))
+            if rec is None:
+                continue
+            self.assertEqual(v["definitive"], rec["definitive"], k)
+            checked += 1
+        self.assertGreater(checked, 5)
+        # And the flag must actually be set for the archive, not near-empty.
+        self.assertGreater(sum(1 for v in rows.values() if v["definitive"]),
+                           0.9 * len(rows))
 
     def test_refresh_uses_nowcast_when_current_else_full(self):
         # Offline simulation: stub the two GFZ downloads and watch which the

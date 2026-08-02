@@ -37,7 +37,10 @@ def main():
             "ssn": None if SN < 0 else SN,
             "sfi": None if f_obs < 0 else f_obs,
             "sfi_adj": None if f_adj < 0 else f_adj,
-            "definitive": (t[27] == "1") if len(t) > 27 else False,
+            # D column is 0/1/2 (0 = preliminary, 1 = Kp definitive, 2 = Kp
+            # and SN definitive) — must match solar.py, which reads >= 1.
+            "definitive": (t[27].isdigit() and int(t[27]) >= 1
+                           if len(t) > 27 else False),
         }
     OUT.write_text(json.dumps(rows, separators=(",", ":")), encoding="utf-8")
     keys = sorted(rows)
