@@ -523,19 +523,19 @@ class TestSolar(unittest.TestCase):
 
 class TestDataFile(unittest.TestCase):
     def test_dxcc_json_sane(self):
-        d = json.loads((HERE / "dxcc.json").read_text())
+        d = json.loads(hamcore.data_path("dxcc.json").read_text())
         self.assertGreater(len(d["entities"]), 300)
         self.assertGreater(len(d["lookup"]), 500)
         for key in ("W", "DL", "JA", "G", "VK"):
             self.assertIn(key, d["lookup"], key)
 
     def test_rare_json_sane(self):
-        d = json.loads((HERE / "rare.json").read_text())["rare"]
+        d = json.loads(hamcore.data_path("rare.json").read_text())["rare"]
         self.assertGreater(len(d), 50)
         self.assertEqual(d["344"], 1)        # DPR of Korea is most-wanted #1
 
     def test_itu_json_sane(self):
-        d = json.loads((HERE / "itu.json").read_text())["lookup"]
+        d = json.loads(hamcore.data_path("itu.json").read_text())["lookup"]
         self.assertGreater(len(d), 800)
         self.assertEqual(d["3G"]["country"], "Chile")
         self.assertEqual(d["3G"]["cont"], "SA")
@@ -558,7 +558,9 @@ class TestVendoredHamcore(unittest.TestCase):
         resolving India to the South Pole, and nine sub-Antarctic entities
         stranded at (-90, 0) in every copy but one."""
         import hamcore
-        here = pathlib.Path(__file__).resolve().parent
+        # The app reads hamcore's copies directly now; what is left to drift
+        # is docs/, which ships these to the browser for the web build.
+        here = pathlib.Path(__file__).resolve().parent / "docs"
         for name in ("dxcc.json", "itu.json", "rare.json"):
             mine = here / name
             if not mine.exists():
@@ -566,7 +568,8 @@ class TestVendoredHamcore(unittest.TestCase):
             self.assertEqual(
                 json.loads(mine.read_text()),
                 json.loads(hamcore.data_path(name).read_text()),
-                f"{name} has drifted from hamcore — copy one over the other")
+                f"docs/{name} has drifted from hamcore — re-run "
+                f"python3 -m hamcore.vendor sync, then copy data/{name} into docs/")
 
 
 if __name__ == "__main__":

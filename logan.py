@@ -39,6 +39,7 @@ from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from hamcore import data_path
 from hamcore.adif import parse_adif_records
 from hamcore.solar import gfz as solar
 
@@ -200,7 +201,10 @@ CONTINENT_NAMES = {
 
 
 def _load_lookup(name):
-    path = HERE / name
+    # hamcore owns dxcc/itu/rare.json now — and, more to the point, owns the
+    # builders that generate them, so a fix cannot be quietly undone by the
+    # next rebuild the way nine wrong entity coordinates were.
+    path = data_path(name)
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8")).get("lookup", {})
@@ -213,7 +217,7 @@ ITU = _load_lookup("itu.json")
 
 
 def _load_dxcc_codes():
-    path = HERE / "dxcc.json"
+    path = data_path("dxcc.json")
     if not path.exists():
         return {}
     ents = json.loads(path.read_text(encoding="utf-8")).get("entities", [])
@@ -223,14 +227,14 @@ def _load_dxcc_codes():
 # entity name -> ARRL code, and the rarest/most-wanted entities (code -> rank),
 # used to flag a likely busted callsign (e.g. a stray P5 in a domestic contest).
 DXCC_CODE = _load_dxcc_codes()
-RARE = (json.loads((HERE / "rare.json").read_text(encoding="utf-8")).get("rare", {})
-        if (HERE / "rare.json").exists() else {})
+RARE = (json.loads((data_path("rare.json")).read_text(encoding="utf-8")).get("rare", {})
+        if (data_path("rare.json")).exists() else {})
 
 
 def _load_entity_recs():
     """entity name -> full record (cont/lat/lon/cq/itu), for the call-area
     prefix overrides below (so an override resolves to a *located* entity)."""
-    path = HERE / "dxcc.json"
+    path = data_path("dxcc.json")
     if not path.exists():
         return {}
     ents = json.loads(path.read_text(encoding="utf-8")).get("entities", [])
